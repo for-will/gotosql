@@ -21,9 +21,9 @@ func NewTblTestTableTask(db *sql.DB) {
     rewarded_at timestamp not null default from_unixtime(1),
     ps_x        int       not null default -1,
     ps_y        int       not null default -1,
-	unique index uni_player_mission(player_sn, mission) using btree,
-	index idx_state_progress(state, progress) using btree
-);`
+	index idx_state_progress(state, progress) using btree,
+	unique index uni_player_mission(player_sn, mission) using btree
+)`
 	LogSql(querySql)
 	_, err := db.Exec(querySql)
 	if err != nil {
@@ -113,7 +113,7 @@ func NewTblRewardTask(db *sql.DB) {
     achievement int not null,
     diamond     int not null,
 	index idx_reward_task_return_code(return_code) using btree
-);`
+)`
 	LogSql(querySql)
 	_, err := db.Exec(querySql)
 	if err != nil {

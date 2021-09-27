@@ -117,7 +117,7 @@ func (tm *TableModel) CreateTableSql() string {
 		sb.WriteString(") using btree")
 	}
 
-	sb.WriteString("\n);")
+	sb.WriteString("\n)")
 
 	return sb.String()
 }
@@ -494,6 +494,6 @@ type TestTableTask struct {
 	State      int8      `db:"index:idx_state_progress"`
 	Progress   int32     `db:"index:idx_state_progress"`
 	RewardedAt time.Time `db:"type:timestamp,default:from_unixtime(1)"`
-	PsX        int32     `db:"default:-1"`
+	PsX        int32     `db:"default:-1,index:ie"`
 	PsY        int32     `db:"default:-1"`
 }
