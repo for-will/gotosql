@@ -20,15 +20,15 @@ func CreateTableSql(model interface{}) []string {
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 		col := &ColumnDesc{
-			Name:       fieldName(field),
+			ColName:    fieldName(field),
 			Type:       fieldType(field),
 			PrimaryKey: isPrimaryKey(field),
 		}
 		if col.Type == "unknown" {
 			continue
 		}
-		if len(col.Name) > nameLen {
-			nameLen = len(col.Name)
+		if len(col.ColName) > nameLen {
+			nameLen = len(col.ColName)
 		}
 		if len(col.Type) > typeLen {
 			typeLen = len(col.Type)
@@ -62,7 +62,7 @@ func CreateTableSql(model interface{}) []string {
 	sb.WriteString(fmt.Sprintf("create table %s\n(\n", tableName(typ)))
 	format := fmt.Sprintf("    %%-%ds %%-%ds", nameLen, typeLen)
 	for i, column := range columns {
-		sb.WriteString(fmt.Sprintf(format, column.Name, column.Type))
+		sb.WriteString(fmt.Sprintf(format, column.ColName, column.Type))
 		if column.PrimaryKey {
 			sb.WriteString(" not null auto_increment\n")
 			sb.WriteString("        primary key")
@@ -139,21 +139,28 @@ func GenRecreateTableFunc(model interface{}) string {
 	return sb.String()
 }
 
-func GenModelAutoFile(file string, models ...interface{}) {
+func GenModelAutoFile(file string, pkg string, models ...interface{}) {
 	var sb strings.Builder
-	sb.WriteString(`//
-// Code generated auto. DO NOT EDIT.
-
-package db
+	sb.WriteString("//\n")
+	sb.WriteString("// Code generated auto. DO NOT EDIT.\n\n")
+	sb.WriteString("package " + pkg)
+	sb.WriteString(`
 
 import (
 	"database/sql"
-	"fmt"
+	"strings"
 )`)
 
 	for _, m := range models {
-		sb.WriteString("\n\n")
-		sb.WriteString(GenRecreateTableFunc(m))
+		model := Model(m)
+		sb.WriteString("\n")
+		sb.WriteString(model.BuildCreateTableFunc())
+		sb.WriteString("\n")
+		sb.WriteString(model.BuildSaveFunc())
+		sb.WriteString("\n")
+		sb.WriteString(model.BuildFindOneFunc())
+		sb.WriteString("\n")
+		sb.WriteString(model.BuildFindFunc())
 	}
 	ioutil.WriteFile(file, []byte(sb.String()), 0664)
 }
