@@ -3,7 +3,9 @@ package db
 import (
 	"bytes"
 	"fmt"
+	"github.com/ahmetb/go-linq/v3"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -20,8 +22,13 @@ type ColumnDesc struct {
 
 type IndexDesc struct {
 	Index  string
-	Fields []string
+	Keys   []*IndexKey
 	Unique bool
+}
+
+type IndexKey struct {
+	KeyName string
+	Order   int
 }
 
 func Model(m interface{}) *TableModel {
@@ -57,7 +64,7 @@ type TableModel struct {
 	LogSql       string
 	Columns      []*ColumnDesc
 	Pk           *ColumnDesc
-	Indies       map[string]*IndexDesc
+	Indies       []*IndexDesc
 }
 
 func (tm *TableModel) CreateTableSql() string {
@@ -108,11 +115,11 @@ func (tm *TableModel) CreateTableSql() string {
 		}
 		sb.WriteString(v.Index)
 		sb.WriteString("(")
-		for i, col := range v.Fields {
+		for i, col := range v.Keys {
 			if i != 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(col)
+			sb.WriteString(col.KeyName)
 		}
 		sb.WriteString(") using btree")
 	}
@@ -397,30 +404,35 @@ func haveIndex(tbn string, f reflect.StructField) (indies []*IndexDesc) {
 	words := strings.Split(tag, ",")
 	for _, word := range words {
 		kv := strings.Split(word, ":")
-		if kv[0] == "index" {
-			index := &IndexDesc{
-				Unique: false,
-			}
-			index.Fields = append(index.Fields, fieldName(f))
-			if len(kv) == 1 {
-				index.Index = "idx_" + tbn + "_" + fieldName(f)
-			} else {
-				index.Index = kv[1]
-			}
-			indies = append(indies, index)
-
-		} else if kv[0] == "unique" {
-			unique := &IndexDesc{
-				Unique: true,
-			}
-			unique.Fields = append(unique.Fields, fieldName(f))
-			if len(kv) == 1 {
-				unique.Index = "uni_" + tbn + "_" + fieldName(f)
-			} else {
-				unique.Index = kv[1]
-			}
-			indies = append(indies, unique)
+		idx := &IndexDesc{
+			Unique: false,
 		}
+		if kv[0] == "index" {
+			if len(kv) == 1 {
+				idx.Index = "idx_" + tbn + "_" + fieldName(f)
+			} else {
+				idx.Index = kv[1]
+			}
+		} else if kv[0] == "unique" {
+			idx.Unique = true
+			if len(kv) == 1 {
+				idx.Index = "uni_" + tbn + "_" + fieldName(f)
+			} else {
+				idx.Index = kv[1]
+			}
+		} else {
+			continue
+		}
+
+		key := &IndexKey{
+			KeyName: fieldName(f),
+			Order:   0,
+		}
+		if len(kv) == 3 {
+			key.Order, _ = strconv.Atoi(kv[2])
+		}
+		idx.Keys = append(idx.Keys, key)
+		indies = append(indies, idx)
 	}
 	return indies
 }
@@ -453,7 +465,7 @@ func modelFields(typ reflect.Type) []*ColumnDesc {
 	return columns
 }
 
-func modelIndies(typ reflect.Type) map[string]*IndexDesc {
+func modelIndies(typ reflect.Type) []*IndexDesc {
 
 	var indiesMap = map[string]*IndexDesc{}
 	for i := 0; i < typ.NumField(); i++ {
@@ -466,13 +478,26 @@ func modelIndies(typ reflect.Type) map[string]*IndexDesc {
 		indies := haveIndex(tableName(typ), field)
 		for _, v := range indies {
 			if idx, ok := indiesMap[v.Index]; ok {
-				idx.Fields = append(idx.Fields, v.Fields...)
+				idx.Keys = append(idx.Keys, v.Keys...)
 			} else {
 				indiesMap[v.Index] = v
 			}
 		}
 	}
-	return indiesMap
+
+	var indexList []*IndexDesc
+	linq.From(indiesMap).SelectT(func(value linq.KeyValue) interface{} {
+		return value.Value
+	}).OrderByT(func(i *IndexDesc) interface{} {
+		return i.Index
+	}).ToSlice(&indexList)
+
+	for _, idx := range indexList {
+		linq.From(idx.Keys).OrderByT(func(k *IndexKey) int {
+			return k.Order
+		}).ToSlice(&idx.Keys)
+	}
+	return indexList
 }
 
 /*Test Model*/
@@ -489,8 +514,8 @@ type RewardTask struct {
 
 type TestTableTask struct {
 	Id         int32     `db:"name:sn,type:int,primary_key"`
-	PlayerSn   int32     `db:"unique:uni_player_mission"`
-	Mission    int32     `db:"unique:uni_player_mission"`
+	PlayerSn   int32     `db:"unique:uni_player_mission:2"`
+	Mission    int32     `db:"unique:uni_player_mission:1"`
 	State      int8      `db:"index:idx_state_progress"`
 	Progress   int32     `db:"index:idx_state_progress"`
 	RewardedAt time.Time `db:"type:timestamp,default:from_unixtime(1)"`

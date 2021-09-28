@@ -22,7 +22,8 @@ func NewTblTestTableTask(db *sql.DB) {
     ps_x        int       not null default -1,
     ps_y        int       not null default -1,
 	index idx_state_progress(state, progress) using btree,
-	unique index uni_player_mission(player_sn, mission) using btree
+	index ie(ps_x) using btree,
+	unique index uni_player_mission(mission, player_sn) using btree
 )`
 	LogSql(querySql)
 	_, err := db.Exec(querySql)

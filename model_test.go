@@ -50,9 +50,7 @@ func TestTableModel_CreateTableSql(t *testing.T) {
 func Test_modelIndies(t *testing.T) {
 	indies := modelIndies(reflect.TypeOf(TestTableTask{}))
 	var indexList []*IndexDesc
-	linq.From(indies).SelectT(func(value linq.KeyValue) interface{} {
-		return value.Value
-	}).OrderByT(func(i *IndexDesc) interface{} {
+	linq.From(indies).OrderByT(func(i *IndexDesc) interface{} {
 		return i.Index
 	}).ToSlice(&indexList)
 	t.Log(JsonString(indexList))

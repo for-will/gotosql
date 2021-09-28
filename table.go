@@ -40,7 +40,7 @@ func CreateTableSql(model interface{}) []string {
 		indies := haveIndex(tableName(typ), field)
 		for _, v := range indies {
 			if idx, ok := indiesMap[v.Index]; ok {
-				idx.Fields = append(idx.Fields, v.Fields...)
+				idx.Keys = append(idx.Keys, v.Keys...)
 			} else {
 				indiesMap[v.Index] = v
 			}
@@ -89,11 +89,11 @@ func CreateTableSql(model interface{}) []string {
 		sb.WriteString(" on ")
 		sb.WriteString(tableName(typ))
 		sb.WriteString(" (")
-		for i, col := range v.Fields {
+		for i, col := range v.Keys {
 			if i != 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(col)
+			sb.WriteString(col.KeyName)
 		}
 		sb.WriteString(");")
 		sqlList = append(sqlList, sb.String())
